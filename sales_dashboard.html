@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>户外装备销售分析看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent2: #818cf8;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --border: #334155;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+/* Header */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.header h1 { font-size: 24px; font-weight: 700; color: var(--accent); }
+.header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card-bg); color: var(--text); cursor: pointer;
+  font-size: 14px; transition: all 0.2s; white-space: nowrap;
+}
+.btn:hover { background: var(--border); }
+.btn-primary { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover { background: #7dd3fc; }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-success { background: var(--success); color: #0f172a; border-color: var(--success); font-weight: 600; }
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px; margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--card-bg); border-radius: 12px; padding: 20px;
+  border: 1px solid var(--border); position: relative; overflow: hidden;
+}
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.kpi-card.sales::before { background: var(--accent); }
+.kpi-card.cost::before { background: var(--danger); }
+.kpi-card.profit::before { background: var(--success); }
+.kpi-card.margin::before { background: var(--warning); }
+.kpi-card.qty::before { background: var(--accent2); }
+.kpi-label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* Filters */
+.filter-bar {
+  background: var(--card-bg); border-radius: 12px; padding: 16px 20px;
+  border: 1px solid var(--border); margin-bottom: 24px;
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+}
+.filter-group { display: flex; align-items: center; gap: 8px; }
+.filter-group label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.filter-group select {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 12px; font-size: 13px; min-width: 120px;
+}
+
+/* Charts */
+.charts-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px; margin-bottom: 24px;
+}
+.chart-card {
+  background: var(--card-bg); border-radius: 12px; padding: 20px;
+  border: 1px solid var(--border);
+}
+.chart-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+.chart-box { width: 100%; height: 300px; }
+
+/* Alerts */
+.alerts-section {
+  background: var(--card-bg); border-radius: 12px; padding: 16px 20px;
+  border: 1px solid var(--border); margin-bottom: 24px;
+}
+.alerts-header {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; user-select: none;
+}
+.alerts-title { font-size: 15px; font-weight: 600; }
+.alerts-toggle { color: var(--text-muted); font-size: 12px; }
+.alerts-body { margin-top: 12px; display: none; }
+.alerts-body.open { display: block; }
+.alert-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 8px; margin-bottom: 8px; font-size: 14px;
+}
+.alert-item.danger { background: rgba(248,113,113,0.1); border-left: 3px solid var(--danger); }
+.alert-item.warning { background: rgba(251,191,36,0.1); border-left: 3px solid var(--warning); }
+.alert-item.info { background: rgba(56,189,248,0.1); border-left: 3px solid var(--accent); }
+.alert-item.success { background: rgba(52,211,153,0.1); border-left: 3px solid var(--success); }
+.alert-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;
+}
+.alert-badge.danger { background: var(--danger); color: #fff; }
+.alert-badge.warning { background: var(--warning); color: #0f172a; }
+.alert-badge.info { background: var(--accent); color: #0f172a; }
+.alert-badge.success { background: var(--success); color: #0f172a; }
+
+/* Table */
+.table-section {
+  background: var(--card-bg); border-radius: 12px; padding: 20px;
+  border: 1px solid var(--border); margin-bottom: 24px;
+}
+.table-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+}
+.table-title { font-size: 16px; font-weight: 600; }
+.table-search {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 14px; color: var(--text); font-size: 13px; width: 240px;
+}
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+th {
+  text-align: left; padding: 12px 10px; color: var(--text-muted);
+  font-weight: 600; border-bottom: 1px solid var(--border); cursor: pointer;
+  user-select: none; white-space: nowrap;
+}
+th:hover { color: var(--accent); }
+th .sort-icon { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+th.sort-asc .sort-icon::after { content: '▲'; opacity: 1; }
+th.sort-desc .sort-icon::after { content: '▼'; opacity: 1; }
+td {
+  padding: 10px; border-bottom: 1px solid var(--border); color: var(--text);
+}
+tr:hover { background: rgba(255,255,255,0.03); }
+.td-num { text-align: right; font-family: 'SF Mono', monospace; }
+.td-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px;
+}
+.badge-cny { background: rgba(52,211,153,0.15); color: var(--success); }
+.badge-hkd { background: rgba(129,140,248,0.15); color: var(--accent2); }
+.badge-jpy { background: rgba(251,191,36,0.15); color: var(--warning); }
+.badge-low { background: rgba(248,113,113,0.15); color: var(--danger); }
+.badge-mid { background: rgba(251,191,36,0.15); color: var(--warning); }
+.badge-high { background: rgba(52,211,153,0.15); color: var(--success); }
+
+/* Pricing Tool */
+.pricing-section {
+  background: var(--card-bg); border-radius: 12px; padding: 20px;
+  border: 1px solid var(--border); margin-bottom: 24px;
+}
+.pricing-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.pricing-form {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; align-items: end;
+}
+.form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+.form-group input, .form-group select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 14px;
+}
+.pricing-result {
+  margin-top: 16px; padding: 16px; background: var(--bg); border-radius: 8px;
+  border: 1px solid var(--border); font-size: 15px;
+}
+.pricing-result strong { color: var(--accent); font-size: 20px; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: none; justify-content: center; align-items: center; z-index: 1000;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card-bg); border-radius: 16px; border: 1px solid var(--border);
+  max-width: 800px; width: 100%; max-height: 90vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-title { font-size: 18px; font-weight: 600; }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Data Input */
+.data-input {
+  width: 100%; min-height: 200px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; color: var(--text); font-family: monospace; font-size: 13px;
+  resize: vertical;
+}
+
+/* Pagination */
+.pagination {
+  display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 16px;
+}
+.page-btn {
+  padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); cursor: pointer; font-size: 13px;
+}
+.page-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 600; }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>🏔️ 户外装备销售分析看板</h1>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="openImportModal()">📥 导入数据</button>
+      <button class="btn" onclick="exportCSV()">📤 导出CSV</button>
+      <button class="btn" onclick="exportJSON()">💾 保存备份</button>
+      <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清除数据</button>
+      <button class="btn btn-success" onclick="loadDemoData()">🔄 加载示例数据</button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="kpiCards">
+    <div class="kpi-card sales">
+      <div class="kpi-label">总销售额</div>
+      <div class="kpi-value" id="kpiSales">¥0</div>
+      <div class="kpi-sub" id="kpiSalesSub">-</div>
+    </div>
+    <div class="kpi-card cost">
+      <div class="kpi-label">总采购成本</div>
+      <div class="kpi-value" id="kpiCost">¥0</div>
+      <div class="kpi-sub" id="kpiCostSub">-</div>
+    </div>
+    <div class="kpi-card profit">
+      <div class="kpi-label">总毛利</div>
+      <div class="kpi-value" id="kpiProfit">¥0</div>
+      <div class="kpi-sub" id="kpiProfitSub">-</div>
+    </div>
+    <div class="kpi-card margin">
+      <div class="kpi-label">平均毛利率</div>
+      <div class="kpi-value" id="kpiMargin">0%</div>
+      <div class="kpi-sub" id="kpiMarginSub">-</div>
+    </div>
+    <div class="kpi-card qty">
+      <div class="kpi-label">总销售数量</div>
+      <div class="kpi-value" id="kpiQty">0</div>
+      <div class="kpi-sub" id="kpiQtySub">-</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>品牌</label>
+      <select id="filterBrand" onchange="applyFilters()">
+        <option value="all">全部品牌</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>货币</label>
+      <select id="filterCurrency" onchange="applyFilters()">
+        <option value="all">全部币种</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>付款方式</label>
+      <select id="filterPayment" onchange="applyFilters()">
+        <option value="all">全部渠道</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>性别</label>
+      <select id="filterGender" onchange="applyFilters()">
+        <option value="all">全部性别</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>尺码</label>
+      <select id="filterSize" onchange="applyFilters()">
+        <option value="all">全部尺码</option>
+      </select>
+    </div>
+    <button class="btn" onclick="clearFilters()">清除筛选</button>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">品牌营收占比</div>
+      <div class="chart-box" id="chartBrandPie"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">币种营收分布</div>
+      <div class="chart-box" id="chartCurrencyPie"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">品牌毛利率对比</div>
+      <div class="chart-box" id="chartBrandMargin"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">付款方式营收对比</div>
+      <div class="chart-box" id="chartPayment"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">价格带分布</div>
+      <div class="chart-box" id="chartPriceBand"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">毛利率区间分布</div>
+      <div class="chart-box" id="chartMarginBand"></div>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="alerts-section">
+    <div class="alerts-header" onclick="toggleAlerts()">
+      <div class="alerts-title">⚠️ 数据预警与洞察</div>
+      <div class="alerts-toggle" id="alertsToggle">点击展开 ▼</div>
+    </div>
+    <div class="alerts-body" id="alertsBody">
+      <div id="alertsList"></div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-section">
+    <div class="table-header">
+      <div class="table-title">📋 销售明细数据</div>
+      <input type="text" class="table-search" id="tableSearch" placeholder="搜索品牌、性别..." oninput="searchTable()">
+    </div>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable('brand')">品牌 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('gender')">性别 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('size')">尺码 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('qty')">数量 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('currency')">货币 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('cost')">采购成本 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('price')">销售单价 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('profit')">销售毛利 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('margin')">毛利率 <span class="sort-icon">⇅</span></th>
+            <th onclick="sortTable('payment')">付款方式 <span class="sort-icon">⇅</span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <!-- Pricing Tool -->
+  <div class="pricing-section">
+    <div class="pricing-title">🧮 定价计算器</div>
+    <div class="pricing-form">
+      <div class="form-group">
+        <label>采购成本 (CNY)</label>
+        <input type="number" id="calcCost" placeholder="例如: 500" oninput="calculatePrice()">
+      </div>
+      <div class="form-group">
+        <label>期望毛利率 (%)</label>
+        <input type="number" id="calcMargin" placeholder="例如: 25" oninput="calculatePrice()">
+      </div>
+      <div class="form-group">
+        <label>货币</label>
+        <select id="calcCurrency" onchange="calculatePrice()">
+          <option value="CNY">CNY 人民币</option>
+          <option value="HKD">HKD 港币</option>
+          <option value="JPY">JPY 日元</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>汇率 (兑CNY)</label>
+        <input type="number" id="calcRate" value="1.00" step="0.01" oninput="calculatePrice()">
+      </div>
+    </div>
+    <div class="pricing-result" id="pricingResult" style="display:none;">
+      建议售价：<strong id="suggestedPrice">¥0</strong>
+      <span style="color:var(--text-muted); margin-left:12px;">
+        毛利: <span id="suggestedProfit">¥0</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Cost & Rebate Calculator -->
+  <div class="pricing-section">
+    <div class="pricing-title">🧾 成本与返点计算器（跨境采购专用）</div>
+    <div style="color:var(--text-muted); font-size:12px; margin-bottom:16px;">
+      适用于海外采购场景：输入外币采购价、汇率、关税/运费、返点比例，计算实际到岸成本和建议售价
+    </div>
+    <div class="pricing-form">
+      <div class="form-group">
+        <label>外币采购单价</label>
+        <input type="number" id="crPurchasePrice" placeholder="例如: 14000" oninput="calculateCostRebate()">
+      </div>
+      <div class="form-group">
+        <label>采购货币</label>
+        <select id="crCurrency" onchange="calculateCostRebate()">
+          <option value="JPY">JPY 日元</option>
+          <option value="HKD">HKD 港币</option>
+          <option value="CNY">CNY 人民币</option>
+          <option value="USD">USD 美元</option>
+          <option value="EUR">EUR 欧元</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>汇率（兑CNY）</label>
+        <input type="number" id="crRate" value="0.04" step="0.001" oninput="calculateCostRebate()">
+      </div>
+      <div class="form-group">
+        <label>采购数量</label>
+        <input type="number" id="crQty" value="1" min="1" oninput="calculateCostRebate()">
+      </div>
+      <div class="form-group">
+        <label>关税/运费/杂费 (CNY)</label>
+        <input type="number" id="crExtra" value="0" placeholder="例如: 50" oninput="calculateCostRebate()">
+      </div>
+      <div class="form-group">
+        <label>返点/折扣 (%)</label>
+        <input type="number" id="crRebate" value="0" step="0.1" placeholder="例如: 5" oninput="calculateCostRebate()">
+      </div>
+      <div class="form-group">
+        <label>期望毛利率 (%)</label>
+        <input type="number" id="crMargin" value="25" step="1" placeholder="例如: 25" oninput="calculateCostRebate()">
+      </div>
+    </div>
+
+    <div style="margin-top:20px; display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+      <div class="pricing-result" style="margin-top:0;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">原始采购成本 (CNY)</div>
+        <strong id="crOriginalCost" style="font-size:18px;">¥0</strong>
+      </div>
+      <div class="pricing-result" style="margin-top:0;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">返点后单价 (CNY)</div>
+        <strong id="crRebatePrice" style="font-size:18px; color:var(--accent);">¥0</strong>
+      </div>
+      <div class="pricing-result" style="margin-top:0;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">实际到岸成本 (CNY)</div>
+        <strong id="crActualCost" style="font-size:18px; color:var(--warning);">¥0</strong>
+      </div>
+      <div class="pricing-result" style="margin-top:0; border:1px solid var(--accent);">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">💰 建议售价 (CNY)</div>
+        <strong id="crSuggestedPrice" style="font-size:22px; color:var(--success);">¥0</strong>
+      </div>
+      <div class="pricing-result" style="margin-top:0;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">单件毛利 (CNY)</div>
+        <strong id="crUnitProfit" style="font-size:18px;">¥0</strong>
+      </div>
+      <div class="pricing-result" style="margin-top:0;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">总毛利 (CNY)</div>
+        <strong id="crTotalProfit" style="font-size:18px;">¥0</strong>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; padding:12px; background:var(--bg); border-radius:8px; font-size:13px; color:var(--text-muted); line-height:1.8;">
+      <strong style="color:var(--accent);">📐 计算公式说明：</strong><br>
+      ① 原始成本 = 外币单价 × 汇率 × 数量<br>
+      ② 返点后单价 = 外币单价 × (1 - 返点%) × 汇率<br>
+      ③ 实际到岸成本 = 返点后总价 + 关税/运费/杂费<br>
+      ④ 建议售价 = 实际到岸成本 ÷ (1 - 期望毛利率)<br>
+      ⑤ 单件毛利 = 建议售价 - 实际到岸成本/数量
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📥 导入数据</div>
+      <button class="modal-close" onclick="closeImportModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">
+        支持从Excel/CSV粘贴数据，或手动输入。格式：品牌,性别,尺码,数量,货币,采购单价,汇率,采购成本,销售单价,销售毛利,毛利率,付款方式
+      </p>
+      <textarea class="data-input" id="dataInput" placeholder="在此粘贴数据...&#10;Klättermusen,男,L,1,CNY,1050,1,1050,1165,115,0.0987,微信支付"></textarea>
+      <div style="margin-top:12px; color:var(--text-muted); font-size:12px;">
+        💡 提示：也可以直接粘贴Excel表格内容（制表符分隔）
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeImportModal()">取消</button>
+      <button class="btn btn-primary" onclick="importData()">确认导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== DEMO DATA (206 records) =====================
+const demoData = [["Klättermusen","男","L",1,"CNY",1050.0,1.0,1050.0,1165.0,115.0,0.0987,"闲鱼支付"],["Klättermusen","男","XL",1,"CNY",1050.0,1.0,1050.0,1165.0,115.0,0.0987,"闲鱼支付"],["Klättermusen","男","S",1,"CNY",960.0,1.0,960.0,1052.0,92.0,0.0875,"闲鱼支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,368.0,90.8,0.24670000000000003,"微信支付"],["Klättermusen","男","M",1,"CNY",720.0,1.0,720.0,768.0,48.0,0.0625,"微信支付"],["Klättermusen","通用","未标注",1,"CNY",300.0,1.0,300.0,348.0,48.0,0.1379,"闲鱼支付"],["Klättermusen","男","S",1,"CNY",1200.0,1.0,1200.0,1399.0,199.0,0.1422,"微信支付"],["Klättermusen","男","S",1,"CNY",1450.0,1.0,1450.0,1699.0,249.0,0.1466,"微信支付"],["Klättermusen","男","L",1,"CNY",1200.0,1.0,1200.0,1399.0,199.0,0.1422,"微信支付"],["Klättermusen","男","S",1,"CNY",1200.0,1.0,1200.0,1399.0,199.0,0.1422,"微信支付"],["Klättermusen","男","L",1,"CNY",1200.0,1.0,1200.0,1399.0,199.0,0.1422,"微信支付"],["Klättermusen","通用","S",1,"CNY",1400.0,1.0,1400.0,1680.0,280.0,0.16670000000000001,"微信支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,381.0,103.8,0.2724,"闲鱼支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,381.0,103.8,0.2724,"闲鱼支付"],["未分类","通用","未标注",1,"CNY",602.0,1.0,602.0,919.0,317.0,0.34490000000000004,"微信支付"],["未分类","通用","未标注",2,"JPY",1239.6,0.04,105.64,160.0,54.36,0.3398,"微信支付"],["未分类","通用","未标注",1,"JPY",2980.0,0.04,126.97,199.0,72.03,0.3619,"微信支付"],["未分类","男","XL",1,"JPY",9800.0,0.04,417.57,580.0,162.43,0.2801,"微信支付"],["未分类","男","XL",1,"JPY",8400.0,0.04,357.92,499.0,141.08,0.2827,"微信支付"],["山之道","通用","XL",1,"JPY",14000.0,0.04,604.8,799.0,194.2,0.24309999999999998,"微信支付"],["山之道","男","XL",1,"JPY",12000.0,0.04,518.4,688.0,169.6,0.2465,"微信支付"],["Klättermusen","女","M",1,"HKD",378.0,0.88,332.64,409.0,76.36,0.1867,"闲鱼支付"],["Klättermusen","男","M",1,"CNY",1050.0,1.0,1050.0,1165.0,115.0,0.0987,"闲鱼支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,381.0,103.8,0.2724,"闲鱼支付"],["Klättermusen","通用","未标注",1,"CNY",300.0,1.0,300.0,348.0,48.0,0.1379,"闲鱼支付"],["未分类","男","XL",1,"CNY",216.0,1.0,216.0,299.0,83.0,0.2776,"微信支付"],["未分类","女","M",1,"CNY",156.0,1.0,156.0,239.0,83.0,0.34729999999999994,"微信支付"],["Klättermusen","通用","L",1,"HKD",441.0,0.88,388.08,481.0,92.92,0.1932,"闲鱼支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,378.0,100.8,0.2667,"微信支付"],["Klättermusen","通用","未标注",1,"CNY",790.0,1.0,790.0,865.0,75.0,0.0867,"微信支付"],["Klättermusen","通用","未标注",1,"CNY",560.0,1.0,560.0,560.0,0.0,0.0,"微信支付"],["山之道","女","M",1,"JPY",16819.0,0.04,718.41,950.0,231.59,0.2438,"微信支付"],["山之道","女","L",1,"JPY",18500.0,0.04,799.2,999.0,199.8,0.2,"微信支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,391.0,113.8,0.29100000000000004,"微信支付"],["山之道","通用","L",1,"JPY",11819.0,0.04,504.84,699.0,194.16,0.2778,"微信支付"],["Klättermusen","男","L",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["未分类","通用","未标注",1,"JPY",5280.0,0.04,230.31,280.0,49.69,0.1775,"微信支付"],["山之道","通用","L",1,"JPY",13182.0,0.04,563.06,750.0,186.94,0.2493,"微信支付"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["山之道","通用","XL",1,"JPY",12728.0,0.04,543.66,750.0,206.34,0.2751,"微信支付"],["山之道","通用","M",1,"JPY",12728.0,0.04,543.66,799.0,255.34,0.3196,"微信支付"],["山之道","男","M",1,"JPY",16819.0,0.04,718.41,950.0,231.59,0.2438,"微信支付"],["山之道","女","M",1,"JPY",16819.0,0.04,718.41,950.0,231.59,0.2438,"微信支付"],["未分类","未知","未标注",1,"JPY",2976.0,0.04,126.91,175.0,48.09,0.2748,"微信支付"],["未分类","未知","未标注",1,"CNY",60.0,1.0,60.0,80.0,20.0,0.25,"微信支付"],["未分类","未知","未标注",1,"CNY",38.0,1.0,38.0,60.0,22.0,0.3667,"微信支付"],["Klättermusen","男","L",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["山之道","通用","L",1,"JPY",16364.0,0.04,698.97,899.0,200.03,0.2225,"微信支付"],["山之道","通用","S",1,"JPY",18000.0,0.04,777.6,980.0,202.4,0.2065,"微信支付"],["未分类","男","M",1,"CNY",216.0,1.0,216.0,299.0,83.0,0.2776,"微信支付"],["Keen","女","L",1,"CNY",580.0,1.0,580.0,699.0,119.0,0.1702,"微信支付"],["Keen","女","未标注",1,"CNY",600.0,1.0,600.0,699.0,99.0,0.1416,"微信支付"],["Arc'teryx","女","L",1,"JPY",7700.0,0.04,328.84,450.0,121.16,0.2693,"微信支付"],["Arc'teryx","女","L",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["Arc'teryx","通用","L",1,"JPY",5390.0,0.04,235.5,299.0,63.5,0.21239999999999998,"微信支付"],["Klättermusen","女","S",1,"HKD",378.0,0.88,332.64,350.0,17.36,0.0496,"微信支付"],["Arc'teryx","男","L",1,"JPY",12000.0,0.04,511.31,650.0,138.69,0.2134,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",18000.0,0.04,768.71,1050.0,281.29,0.26789999999999997,"支付宝"],["Jins","通用","未标注",1,"JPY",18091.0,0.04,771.11,950.0,178.89,0.1883,"微信支付"],["未分类","通用","未标注",1,"JPY",1782.0,0.04,76.0,99.0,23.0,0.2324,"微信支付"],["未分类","未知","未标注",1,"JPY",810.0,0.04,34.51,0.0,-34.51,0.0,""],["Arc'teryx","男","S",1,"JPY",9100.0,0.04,397.6,550.0,152.4,0.2771,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",10000.0,0.04,429.65,650.0,220.35,0.33899999999999997,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",10000.0,0.04,436.92,650.0,213.08,0.32780000000000004,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",15500.0,0.04,661.94,950.0,288.06,0.3032,"微信支付"],["Arc'teryx","男","M",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["Arc'teryx","男","L",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["Arc'teryx","通用","L",1,"JPY",5390.0,0.04,231.58,299.0,67.42,0.2255,"微信支付"],["Arc'teryx","女","S",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["Arc'teryx","通用","L",1,"JPY",5390.0,0.04,230.19,299.0,68.81,0.23010000000000003,"微信支付"],["Arc'teryx","女","M",1,"JPY",9100.0,0.04,390.98,550.0,159.02,0.2891,"微信支付"],["未分类","通用","未标注",1,"JPY",5455.0,0.04,232.63,400.0,167.37,0.41840000000000005,"微信支付"],["Arc'teryx","女","S",1,"JPY",9100.0,0.04,390.98,550.0,159.02,0.2891,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",10000.0,0.04,427.06,650.0,222.94,0.34299999999999997,"微信支付"],["Jins","通用","未标注",1,"JPY",18091.0,0.04,770.26,950.0,179.74,0.1892,"微信支付"],["Jins","通用","未标注",1,"JPY",23091.0,0.04,983.15,1190.0,206.85,0.17379999999999998,"微信支付"],["Jins","通用","未标注",1,"JPY",23091.0,0.04,984.99,1190.0,205.01,0.1723,"微信支付"],["未分类","通用","未标注",1,"JPY",2714.0,0.04,115.68,160.0,44.32,0.27699999999999997,"微信支付"],["Keen","男","未标注",1,"JPY",14630.0,0.04,624.53,750.0,125.47,0.1673,"微信支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,401.0,123.8,0.30870000000000003,"闲鱼支付"],["山之道","女","S",1,"JPY",14091.0,0.04,600.92,780.0,179.08,0.2296,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",18000.0,0.04,766.96,999.0,232.04,0.2323,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",20000.0,0.04,852.18,999.0,146.82,0.147,"微信支付"],["未分类","通用","未标注",1,"JPY",2976.0,0.04,126.91,175.0,48.09,0.2748,"微信支付"],["未分类","通用","未标注",1,"JPY",2909.0,0.04,124.06,175.0,50.94,0.29109999999999997,"微信支付"],["未分类","通用","未标注",1,"JPY",2862.0,0.04,122.05,160.0,37.95,0.2372,"微信支付"],["山之道","通用","XL",1,"JPY",14091.0,0.04,600.4,799.0,198.6,0.2486,"微信支付"],["未分类","通用","未标注",1,"JPY",1512.0,0.04,64.48,88.0,23.52,0.2673,"微信支付"],["未分类","通用","未标注",1,"JPY",1782.0,0.04,76.0,99.0,23.0,0.2324,"微信支付"],["未分类","通用","未标注",1,"JPY",2980.0,0.04,126.97,199.0,72.03,0.3619,"微信支付"],["Klättermusen","男","L",1,"CNY",1125.0,1.0,1125.0,1199.0,74.0,0.0617,"微信支付"],["未分类","通用","未标注",1,"JPY",2976.0,0.04,126.91,175.0,48.09,0.2748,"微信支付"],["未分类","通用","未标注",1,"JPY",2909.0,0.04,124.06,160.0,35.94,0.22460000000000002,"微信支付"],["Jins","通用","未标注",1,"JPY",18091.0,0.04,770.26,950.0,179.74,0.1892,"微信支付"],["未分类","通用","未标注",1,"CNY",138.0,1.0,138.0,175.0,37.0,0.2114,"微信支付"],["Arc'teryx","通用","M",1,"JPY",7700.0,0.04,328.09,409.0,80.91,0.1978,"闲鱼支付"],["Klättermusen","女","S",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["Klättermusen","男","S",1,"HKD",378.0,0.88,332.64,409.0,76.36,0.1867,"闲鱼支付"],["Arc'teryx","女","XS",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["Arc'teryx","女","XS",1,"JPY",7700.0,0.04,330.83,450.0,119.17,0.2648,"微信支付"],["Arc'teryx","男","M",1,"JPY",9100.0,0.04,388.62,550.0,161.38,0.2934,"微信支付"],["未分类","通用","未标注",1,"JPY",18371.0,0.04,782.02,950.0,167.98,0.17679999999999998,"微信支付"],["山之道","通用","L",1,"JPY",5500.0,0.04,237.6,350.0,112.4,0.3211,"微信支付"],["山之道","通用","XL",1,"JPY",19000.0,0.04,820.8,999.0,178.2,0.1784,"微信支付"],["山之道","通用","未标注",1,"JPY",4500.0,0.04,194.4,280.0,85.6,0.3057,"微信支付"],["山之道","女","M",1,"JPY",18500.0,0.04,799.2,999.0,199.8,0.2,"微信支付"],["山之道","通用","M",1,"JPY",19000.0,0.04,820.8,1050.0,229.2,0.2183,"微信支付"],["未分类","通用","未标注",1,"JPY",6160.0,0.04,268.7,320.0,51.3,0.1603,"微信支付"],["山之道","通用","L",1,"JPY",18000.0,0.04,777.6,980.0,202.4,0.2065,"微信支付"],["山之道","男","XL",1,"JPY",18500.0,0.04,799.2,999.0,199.8,0.2,"微信支付"],["Klättermusen","男","M",1,"CNY",720.0,1.0,720.0,796.0,76.0,0.0955,"闲鱼支付"],["山之道","通用","L",1,"JPY",32728.0,0.04,1394.51,1799.0,404.49,0.2248,"微信支付"],["未分类","通用","未标注",2,"JPY",1782.0,0.04,151.99,198.0,46.01,0.2324,"微信支付"],["未分类","通用","未标注",2,"JPY",1692.0,0.04,144.19,198.0,53.81,0.2718,"微信支付"],["未分类","通用","未标注",1,"JPY",1692.0,0.04,72.16,104.0,31.84,0.3062,"微信支付"],["Arc'teryx","通用","L",1,"JPY",7700.0,0.04,328.79,409.0,80.21,0.1961,"闲鱼支付"],["Arc'teryx","通用","L",1,"JPY",7700.0,0.04,328.79,409.0,80.21,0.1961,"闲鱼支付"],["未分类","通用","未标注",6,"JPY",159.84,0.04,40.95,90.0,49.05,0.545,"微信支付"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["未分类","女","L",1,"JPY",6500.0,0.04,277.59,399.0,121.41,0.3043,"微信支付"],["Arc'teryx","通用","L",1,"JPY",6500.0,0.04,284.0,399.0,115.0,0.2882,"微信支付"],["Klättermusen","通用","M",1,"HKD",441.0,0.88,388.08,506.0,117.92,0.233,"闲鱼支付"],["Klättermusen","男","L",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"微信支付"],["Klättermusen","男","M",1,"CNY",1357.5,1.0,1357.5,1465.0,107.5,0.07339999999999999,"微信支付"],["山之道","通用","M",1,"JPY",14091.0,0.04,600.4,799.0,198.6,0.2486,"微信支付"],["未分类","未知","未标注",2,"JPY",1239.6,0.04,105.64,160.0,54.36,0.3398,"微信支付"],["未分类","未知","未标注",1,"JPY",1782.0,0.04,76.0,100.0,24.0,0.24,"微信支付"],["未分类","未知","未标注",1,"JPY",2862.0,0.04,122.05,160.0,37.95,0.2372,"微信支付"],["未分类","男","未标注",1,"CNY",1797.0,1.0,1797.0,1995.0,198.0,0.0992,"微信支付"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,409.0,76.36,0.1867,"闲鱼支付"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,409.0,76.36,0.1867,"闲鱼支付"],["Klättermusen","男","S",1,"HKD",1021.0,0.86,882.14,1050.0,167.86,0.15990000000000001,"支付宝"],["Klättermusen","男","M",1,"HKD",1021.0,0.86,882.14,1050.0,167.86,0.15990000000000001,"微信支付"],["未分类","通用","未标注",1,"CNY",30.0,1.0,30.0,45.0,15.0,0.3333,"支付宝"],["未分类","通用","未标注",1,"CNY",31.12,1.0,31.12,45.0,13.88,0.3084,"支付宝"],["未分类","通用","未标注",1,"CNY",34.8,1.0,34.8,50.0,15.2,0.304,"支付宝"],["未分类","通用","未标注",1,"CNY",19.88,1.0,19.88,35.0,15.12,0.43200000000000005,"支付宝"],["未分类","通用","未标注",2,"JPY",2874.0,0.04,245.13,340.0,94.87,0.27899999999999997,"支付宝"],["未分类","通用","未标注",1,"CNY",150.0,1.0,150.0,180.0,30.0,0.16670000000000001,"支付宝"],["未分类","通用","未标注",1,"CNY",60.0,1.0,60.0,80.0,20.0,0.25,"支付宝"],["未分类","通用","未标注",1,"JPY",810.0,0.04,34.51,60.0,25.49,0.42479999999999996,"支付宝"],["未分类","通用","未标注",1,"JPY",5636.5,0.04,240.76,350.0,109.24,0.3121,"微信支付"],["未分类","通用","未标注",1,"JPY",5636.5,0.04,240.76,350.0,109.24,0.3121,"微信支付"],["Arc'teryx","通用","未标注",1,"CNY",850.0,1.0,850.0,899.0,49.0,0.0545,"微信支付"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,399.0,66.36,0.1663,"支付宝"],["Klättermusen","男","M",1,"HKD",378.0,0.88,332.64,409.0,76.36,0.1867,"闲鱼支付"],["Klättermusen","女","M",1,"CNY",652.5,1.0,652.5,692.0,39.5,0.0571,"微信支付"],["未分类","女","未标注",1,"CNY",5249.0,1.0,5249.0,5700.0,451.0,0.0791,"支付宝"],["未分类","女","未标注",1,"JPY",13000.0,0.04,553.38,642.0,88.62,0.138,"微信支付"],["未分类","未知","未标注",1,"CNY",0.0,0.0,0.0,0.0,0.0,0.0,""],["未分类","通用","未标注",1,"JPY",10972.5,0.04,467.69,580.0,112.31,0.1936,"微信支付"],["未分类","通用","未标注",1,"JPY",17765.0,0.04,756.95,899.0,142.05,0.158,"微信支付"],["Montbell","通用","未标注",1,"JPY",4389.0,0.04,187.17,260.0,72.83,0.2801,"微信支付"],["Montbell","通用","未标注",1,"JPY",6460.0,0.04,275.49,350.0,74.51,0.21289999999999998,"微信支付"],["Montbell","男","L",1,"JPY",6840.0,0.04,291.7,340.0,48.3,0.1421,"微信支付"],["未分类","未知","未标注",1,"JPY",10972.5,0.04,467.69,580.0,112.31,0.1936,"微信支付"],["Montbell","通用","未标注",1,"JPY",35150.0,0.04,1499.01,1750.0,250.99,0.1434,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",29700.0,0.04,1268.61,1599.0,330.39,0.2066,"微信支付"],["Keen","男","未标注",1,"JPY",15400.0,0.04,657.8,750.0,92.2,0.1229,"微信支付"],["Keen","男","未标注",1,"JPY",15015.0,0.04,641.22,750.0,108.78,0.145,"微信支付"],["Patagonia","男","L",1,"JPY",6792.5,0.04,289.96,350.0,60.04,0.17149999999999999,"微信支付"],["Arc'teryx","通用","S",1,"JPY",14300.0,0.04,609.31,638.0,28.69,0.045,"支付宝"],["Mammut","女","S",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Arc'teryx","男","未标注",1,"JPY",19800.0,0.04,845.4,999.0,153.6,0.15380000000000002,"微信支付"],["Mammut","男","M",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["未分类","通用","未标注",1,"JPY",6000.0,0.04,255.88,400.0,144.12,0.3603,"微信支付"],["Keen","女","未标注",1,"JPY",14630.0,0.04,624.53,750.0,125.47,0.1673,"微信支付"],["Arc'teryx","女","未标注",1,"JPY",37510.0,0.04,1601.56,1899.0,297.44,0.1566,"支付宝"],["Mammut","男","L",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Mammut","男","L",1,"JPY",7837.5,0.04,334.64,450.0,115.36,0.2564,"微信支付"],["Mammut","男","M",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Mammut","男","M",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Mammut","男","M",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Keen","女","未标注",1,"JPY",14630.0,0.04,624.66,750.0,125.34,0.1671,"微信支付"],["Patagonia","男","S",1,"JPY",6792.5,0.04,289.96,350.0,60.04,0.17149999999999999,"微信支付"],["未分类","通用","未标注",1,"JPY",1881.0,0.04,80.15,118.0,37.85,0.3208,"微信支付"],["Montbell","女","S",1,"JPY",9718.5,0.04,414.46,499.0,84.54,0.16940000000000002,"微信支付"],["Montbell","女","S",1,"JPY",5434.0,0.04,231.54,279.0,47.46,0.17010000000000003,"微信支付"],["未分类","女","S",1,"JPY",82555.0,0.04,3520.64,3600.0,79.36,0.022000000000000002,"支付宝"],["Arc'teryx","通用","L",1,"JPY",8470.0,0.04,361.64,409.0,47.36,0.1158,"闲鱼支付"],["Keen","男","未标注",1,"JPY",17696.25,0.04,755.72,999.0,243.28,0.24350000000000002,"支付宝"],["Patagonia","女","S",1,"JPY",6792.5,0.04,289.96,380.0,90.04,0.237,"微信支付"],["Montbell","女","M",1,"JPY",6460.0,0.04,275.49,348.0,72.51,0.2084,"微信支付"],["Patagonia","通用","未标注",1,"JPY",5016.0,0.04,214.12,288.0,73.88,0.2565,"微信支付"],["Patagonia","男","M",1,"JPY",6792.5,0.04,289.96,350.0,60.04,0.17149999999999999,"微信支付"],["Montbell","通用","未标注",1,"JPY",5225.0,0.04,222.83,310.0,87.17,0.2812,"微信支付"],["Montbell","通用","未标注",1,"JPY",6061.0,0.04,258.48,328.0,69.52,0.212,"微信支付"],["Keen","通用","未标注",1,"JPY",7837.5,0.04,334.57,450.0,115.43,0.2565,"微信支付"],["Arc'teryx","男","L",1,"JPY",16500.0,0.04,703.05,820.0,116.95,0.1426,"微信支付"],["未分类","未知","未标注",1,"JPY",810.0,0.04,34.51,0.0,-34.51,0.0,""],["未分类","未知","未标注",1,"JPY",1881.0,0.04,80.15,118.0,37.85,0.3208,"微信支付"],["未分类","未知","未标注",1,"JPY",1776.5,0.04,75.69,110.0,34.31,0.3119,"微信支付"],["未分类","通用","未标注",2,"JPY",2143.0,0.04,182.62,256.0,73.38,0.2866,"微信支付"],["未分类","通用","未标注",1,"JPY",1881.0,0.04,80.15,125.0,44.85,0.3588,"支付宝"],["未分类","通用","未标注",1,"JPY",1881.0,0.04,80.15,105.0,24.85,0.23670000000000002,"支付宝"],["未分类","通用","未标注",1,"JPY",1881.0,0.04,80.15,105.0,24.85,0.23670000000000002,"支付宝"],["未分类","通用","未标注",1,"JPY",1776.5,0.04,75.69,110.0,34.31,0.3119,"支付宝"],["未分类","通用","未标注",1,"JPY",2352.0,0.04,100.22,120.0,19.78,0.1649,"支付宝"],["Mammut","男","S",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Mammut","男","M",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Mammut","女","S",1,"JPY",6174.05,0.04,263.61,350.0,86.39,0.2468,"微信支付"],["Arc'teryx","女","未标注",1,"JPY",19800.0,0.04,844.39,1173.76,329.37,0.28059999999999996,"得物支付"],["Arc'teryx","通用","M",1,"JPY",10000.0,0.04,426.46,572.83,146.37,0.2555,"得物支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,448.27,171.07,0.38159999999999994,"得物支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,418.52,141.32,0.33770000000000006,"得物支付"],["Klättermusen","通用","未标注",1,"HKD",315.0,0.88,277.2,438.8,161.6,0.36829999999999996,"得物支付"]];
+
+const columns = ["brand","gender","size","qty","currency","purchasePrice","rate","cost","price","profit","margin","payment"];
+
+let rawData = [];
+let filteredData = [];
+let currentPage = 1;
+const pageSize = 15;
+let sortCol = '';
+let sortDir = 'asc';
+
+function parseRow(arr) {
+  return {
+    brand: arr[0] || "未分类",
+    gender: arr[1] || "未知",
+    size: arr[2] || "未标注",
+    qty: parseInt(arr[3]) || 1,
+    currency: arr[4] || "CNY",
+    purchasePrice: parseFloat(arr[5]) || 0,
+    rate: parseFloat(arr[6]) || 1,
+    cost: parseFloat(arr[7]) || 0,
+    price: parseFloat(arr[8]) || 0,
+    profit: parseFloat(arr[9]) || 0,
+    margin: parseFloat(arr[10]) || 0,
+    payment: arr[11] || "未知"
+  };
+}
+
+function loadDemoData() {
+  rawData = demoData.map(parseRow);
+  saveData();
+  applyFilters();
+}
+
+function saveData() {
+  localStorage.setItem('salesData', JSON.stringify(rawData));
+}
+
+function loadSavedData() {
+  const saved = localStorage.getItem('salesData');
+  if (saved) {
+    try {
+      rawData = JSON.parse(saved);
+      applyFilters();
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// ===================== IMPORT =====================
+function openImportModal() {
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('open');
+}
+
+function importData() {
+  const text = document.getElementById('dataInput').value.trim();
+  if (!text) { alert('请输入数据'); return; }
+
+  const lines = text.split('\n').filter(l => l.trim());
+  const newData = [];
+
+  for (const line of lines) {
+    const parts = line.split(/[\t,]/).map(s => s.trim());
+    if (parts.length >= 10) {
+      newData.push(parseRow(parts));
+    }
+  }
+
+  if (newData.length === 0) { alert('未能解析任何有效数据，请检查格式'); return; }
+
+  rawData = newData;
+  saveData();
+  applyFilters();
+  closeImportModal();
+  alert(`成功导入 ${newData.length} 条数据！`);
+}
+
+function exportCSV() {
+  if (!filteredData.length) { alert('没有数据可导出'); return; }
+  const headers = ['品牌','性别','尺码','数量','货币','采购单价','汇率','采购成本','销售单价','销售毛利','毛利率','付款方式'];
+  const rows = filteredData.map(d => [
+    d.brand, d.gender, d.size, d.qty, d.currency, d.purchasePrice, d.rate, d.cost, d.price, d.profit, d.margin, d.payment
+  ]);
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'sales_data_export.csv';
+  link.click();
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'sales_data_backup.json';
+  link.click();
+}
+
+// ===================== FILTERS =====================
+function updateFilterOptions() {
+  const brands = [...new Set(rawData.map(d => d.brand))].sort();
+  const currencies = [...new Set(rawData.map(d => d.currency))].sort();
+  const payments = [...new Set(rawData.map(d => d.payment))].sort();
+  const genders = [...new Set(rawData.map(d => d.gender))].sort();
+  const sizes = [...new Set(rawData.map(d => d.size))].sort();
+
+  const updateSelect = (id, items) => {
+    const sel = document.getElementById(id);
+    const val = sel.value;
+    sel.innerHTML = '<option value="all">全部</option>' + items.map(i => `<option value="${i}">${i}</option>`).join('');
+    sel.value = val;
+  };
+
+  updateSelect('filterBrand', brands);
+  updateSelect('filterCurrency', currencies);
+  updateSelect('filterPayment', payments);
+  updateSelect('filterGender', genders);
+  updateSelect('filterSize', sizes);
+}
+
+function applyFilters() {
+  const b = document.getElementById('filterBrand').value;
+  const c = document.getElementById('filterCurrency').value;
+  const p = document.getElementById('filterPayment').value;
+  const g = document.getElementById('filterGender').value;
+  const s = document.getElementById('filterSize').value;
+
+  filteredData = rawData.filter(d => {
+    return (b === 'all' || d.brand === b) &&
+           (c === 'all' || d.currency === c) &&
+           (p === 'all' || d.payment === p) &&
+           (g === 'all' || d.gender === g) &&
+           (s === 'all' || d.size === s);
+  });
+
+  currentPage = 1;
+  updateKPIs();
+  updateCharts();
+  updateAlerts();
+  renderTable();
+  updateFilterOptions();
+}
+
+function clearFilters() {
+  document.getElementById('filterBrand').value = 'all';
+  document.getElementById('filterCurrency').value = 'all';
+  document.getElementById('filterPayment').value = 'all';
+  document.getElementById('filterGender').value = 'all';
+  document.getElementById('filterSize').value = 'all';
+  document.getElementById('tableSearch').value = '';
+  applyFilters();
+}
+
+// ===================== KPIs =====================
+function updateKPIs() {
+  const totalSales = filteredData.reduce((s, d) => s + d.price * d.qty, 0);
+  const totalCost = filteredData.reduce((s, d) => s + d.cost * d.qty, 0);
+  const totalProfit = filteredData.reduce((s, d) => s + d.profit * d.qty, 0);
+  const avgMargin = filteredData.length ? filteredData.reduce((s, d) => s + d.margin, 0) / filteredData.length : 0;
+  const totalQty = filteredData.reduce((s, d) => s + d.qty, 0);
+
+  document.getElementById('kpiSales').textContent = '¥' + totalSales.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('kpiCost').textContent = '¥' + totalCost.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('kpiProfit').textContent = '¥' + totalProfit.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('kpiMargin').textContent = (avgMargin * 100).toFixed(2) + '%';
+  document.getElementById('kpiQty').textContent = totalQty + '件';
+
+  document.getElementById('kpiSalesSub').textContent = filteredData.length + '笔交易';
+  document.getElementById('kpiCostSub').textContent = '占销售额 ' + (totalCost/totalSales*100).toFixed(1) + '%';
+  document.getElementById('kpiProfitSub').textContent = '利润率 ' + (totalProfit/totalSales*100).toFixed(1) + '%';
+  document.getElementById('kpiMarginSub').textContent = '中位数 ' + (median(filteredData.map(d=>d.margin))*100).toFixed(1) + '%';
+  document.getElementById('kpiQtySub').textContent = '平均 ¥' + (totalSales/totalQty).toFixed(0) + '/件';
+}
+
+function median(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+}
+
+// ===================== CHARTS =====================
+let charts = {};
+
+function initCharts() {
+  charts.brandPie = echarts.init(document.getElementById('chartBrandPie'));
+  charts.currencyPie = echarts.init(document.getElementById('chartCurrencyPie'));
+  charts.brandMargin = echarts.init(document.getElementById('chartBrandMargin'));
+  charts.payment = echarts.init(document.getElementById('chartPayment'));
+  charts.priceBand = echarts.init(document.getElementById('chartPriceBand'));
+  charts.marginBand = echarts.init(document.getElementById('chartMarginBand'));
+
+  window.addEventListener('resize', () => {
+    Object.values(charts).forEach(c => c.resize());
+  });
+}
+
+function updateCharts() {
+  const d = filteredData;
+  const themeColors = ['#38bdf8','#818cf8','#34d399','#fbbf24','#f87171','#a78bfa','#fb923c','#22d3ee'];
+
+  // Brand Pie
+  const brandSales = {};
+  d.forEach(x => { brandSales[x.brand] = (brandSales[x.brand]||0) + x.price*x.qty; });
+  charts.brandPie.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+    legend: { bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      data: Object.entries(brandSales).map(([k,v],i) => ({name:k,value:v.toFixed(2),itemStyle:{color:themeColors[i%themeColors.length]}})),
+      label: { color: '#f1f5f9', fontSize: 12 }
+    }]
+  });
+
+  // Currency Pie
+  const currSales = {};
+  d.forEach(x => { currSales[x.currency] = (currSales[x.currency]||0) + x.price*x.qty; });
+  charts.currencyPie.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
+    legend: { bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'],
+      data: Object.entries(currSales).map(([k,v],i) => ({name:k,value:v.toFixed(2),itemStyle:{color:themeColors[i%themeColors.length]}})),
+      label: { color: '#f1f5f9', fontSize: 12 }
+    }]
+  });
+
+  // Brand Margin Bar
+  const brandMargin = {};
+  const brandCount = {};
+  d.forEach(x => {
+    brandMargin[x.brand] = (brandMargin[x.brand]||0) + x.margin;
+    brandCount[x.brand] = (brandCount[x.brand]||0) + 1;
+  });
+  const bmData = Object.entries(brandMargin).map(([k,v]) => ({name:k,value:(v/brandCount[k]*100).toFixed(2)}));
+  charts.brandMargin.setOption({
+    tooltip: { trigger: 'axis', formatter: '{b}: {c}%' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: bmData.map(x=>x.name), axisLabel: { color: '#94a3b8', fontSize: 11, rotate: 30 }, axisLine: { lineStyle: { color: '#334155' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{ type: 'bar', data: bmData.map((x,i) => ({value:x.value,itemStyle:{color:themeColors[i%themeColors.length]}})), barWidth: '50%' }]
+  });
+
+  // Payment Bar
+  const paySales = {};
+  d.forEach(x => { paySales[x.payment] = (paySales[x.payment]||0) + x.price*x.qty; });
+  charts.payment.setOption({
+    tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: Object.keys(paySales), axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{ type: 'bar', data: Object.values(paySales).map((v,i) => ({value:v.toFixed(2),itemStyle:{color:themeColors[i]}})), barWidth: '40%' }]
+  });
+
+  // Price Band
+  const bands = {'0-100':0,'100-300':0,'300-500':0,'500-1000':0,'1000-2000':0,'2000+':0};
+  d.forEach(x => {
+    const p = x.price;
+    if (p < 100) bands['0-100'] += x.qty;
+    else if (p < 300) bands['100-300'] += x.qty;
+    else if (p < 500) bands['300-500'] += x.qty;
+    else if (p < 1000) bands['500-1000'] += x.qty;
+    else if (p < 2000) bands['1000-2000'] += x.qty;
+    else bands['2000+'] += x.qty;
+  });
+  charts.priceBand.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: Object.keys(bands), axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{ type: 'bar', data: Object.values(bands).map((v,i) => ({value:v,itemStyle:{color:themeColors[i]}})), barWidth: '50%' }]
+  });
+
+  // Margin Band
+  const mbands = {'0-10%':0,'10-20%':0,'20-30%':0,'30-50%':0,'50%+':0};
+  d.forEach(x => {
+    const m = x.margin * 100;
+    if (m < 10) mbands['0-10%'] += x.qty;
+    else if (m < 20) mbands['10-20%'] += x.qty;
+    else if (m < 30) mbands['20-30%'] += x.qty;
+    else if (m < 50) mbands['30-50%'] += x.qty;
+    else mbands['50%+'] += x.qty;
+  });
+  charts.marginBand.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+    xAxis: { type: 'category', data: Object.keys(mbands), axisLabel: { color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{ type: 'bar', data: Object.values(mbands).map((v,i) => ({value:v,itemStyle:{color:themeColors[i]}})), barWidth: '50%' }]
+  });
+}
+
+// ===================== ALERTS =====================
+function toggleAlerts() {
+  const body = document.getElementById('alertsBody');
+  const toggle = document.getElementById('alertsToggle');
+  body.classList.toggle('open');
+  toggle.textContent = body.classList.contains('open') ? '点击收起 ▲' : '点击展开 ▼';
+}
+
+function updateAlerts() {
+  const d = filteredData;
+  const lowMargin = d.filter(x => x.margin < 0.1);
+  const zeroMargin = d.filter(x => x.profit <= 0);
+  const missingBrand = d.filter(x => x.brand === '未分类');
+  const missingSize = d.filter(x => x.size === '未标注');
+
+  let html = '';
+
+  if (lowMargin.length) {
+    html += `<div class="alert-item danger">
+      <span class="alert-badge danger">${lowMargin.length}件</span>
+      <span>🔴 低毛利商品（毛利率 < 10%），建议检查定价策略</span>
+    </div>`;
+  }
+  if (zeroMargin.length) {
+    html += `<div class="alert-item warning">
+      <span class="alert-badge warning">${zeroMargin.length}件</span>
+      <span>🟡 零/负毛利商品，请立即核实成本或售价</span>
+    </div>`;
+  }
+  if (missingBrand.length) {
+    html += `<div class="alert-item info">
+      <span class="alert-badge info">${missingBrand.length}条</span>
+      <span>⚪ 品牌信息缺失，建议补全以便分析</span>
+    </div>`;
+  }
+  if (missingSize.length) {
+    html += `<div class="alert-item info">
+      <span class="alert-badge info">${missingSize.length}条</span>
+      <span>⚪ 尺码信息缺失，影响库存结构分析</span>
+    </div>`;
+  }
+
+  // Insights
+  const brandStats = {};
+  d.forEach(x => {
+    if (!brandStats[x.brand]) brandStats[x.brand] = { sales: 0, profit: 0, count: 0 };
+    brandStats[x.brand].sales += x.price * x.qty;
+    brandStats[x.brand].profit += x.profit * x.qty;
+    brandStats[x.brand].count += x.qty;
+  });
+
+  const bestBrand = Object.entries(brandStats).sort((a,b) => b[1].profit - a[1].profit)[0];
+  if (bestBrand) {
+    html += `<div class="alert-item success">
+      <span class="alert-badge success">💡</span>
+      <span>最赚钱品牌：<strong>${bestBrand[0]}</strong>，贡献毛利 ¥${bestBrand[1].profit.toFixed(2)}</span>
+    </div>`;
+  }
+
+  document.getElementById('alertsList').innerHTML = html || '<div style="color:var(--text-muted);padding:8px;">暂无预警</div>';
+}
+
+// ===================== TABLE =====================
+function renderTable() {
+  let data = [...filteredData];
+  const search = document.getElementById('tableSearch').value.toLowerCase();
+  if (search) {
+    data = data.filter(d => 
+      d.brand.toLowerCase().includes(search) ||
+      d.gender.toLowerCase().includes(search) ||
+      d.size.toLowerCase().includes(search) ||
+      d.currency.toLowerCase().includes(search) ||
+      d.payment.toLowerCase().includes(search)
+    );
+  }
+
+  if (sortCol) {
+    data.sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  const totalPages = Math.ceil(data.length / pageSize);
+  const start = (currentPage - 1) * pageSize;
+  const pageData = data.slice(start, start + pageSize);
+
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = pageData.map(d => {
+    const marginClass = d.margin < 0.1 ? 'badge-low' : d.margin < 0.2 ? 'badge-mid' : 'badge-high';
+    const currencyClass = d.currency === 'CNY' ? 'badge-cny' : d.currency === 'HKD' ? 'badge-hkd' : 'badge-jpy';
+    return `<tr>
+      <td>${d.brand}</td>
+      <td>${d.gender}</td>
+      <td>${d.size}</td>
+      <td class="td-num">${d.qty}</td>
+      <td><span class="td-badge ${currencyClass}">${d.currency}</span></td>
+      <td class="td-num">${d.cost.toFixed(2)}</td>
+      <td class="td-num">${d.price.toFixed(2)}</td>
+      <td class="td-num">${d.profit.toFixed(2)}</td>
+      <td class="td-num"><span class="td-badge ${marginClass}">${(d.margin*100).toFixed(2)}%</span></td>
+      <td>${d.payment}</td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  let phtml = '';
+  if (totalPages > 1) {
+    phtml += `<button class="page-btn" onclick="changePage(${currentPage-1})" ${currentPage===1?'disabled':''}>上一页</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage-1 && i <= currentPage+1)) {
+        phtml += `<button class="page-btn ${i===currentPage?'active':''}" onclick="changePage(${i})">${i}</button>`;
+      } else if (i === currentPage-2 || i === currentPage+2) {
+        phtml += `<span style="color:var(--text-muted);">...</span>`;
+      }
+    }
+    phtml += `<button class="page-btn" onclick="changePage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>下一页</button>`;
+  }
+  document.getElementById('pagination').innerHTML = phtml;
+}
+
+function changePage(p) {
+  currentPage = p;
+  renderTable();
+}
+
+function sortTable(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = 'asc';
+  }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc','sort-desc'));
+  const th = document.querySelector(`th[onclick="sortTable('${col}')"]`);
+  if (th) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  renderTable();
+}
+
+function searchTable() {
+  currentPage = 1;
+  renderTable();
+}
+
+// ===================== PRICING CALCULATOR =====================
+function calculatePrice() {
+  const cost = parseFloat(document.getElementById('calcCost').value) || 0;
+  const margin = parseFloat(document.getElementById('calcMargin').value) || 0;
+
+  if (cost > 0 && margin > 0) {
+    const suggested = cost / (1 - margin/100);
+    const profit = suggested - cost;
+    document.getElementById('suggestedPrice').textContent = '¥' + suggested.toFixed(2);
+    document.getElementById('suggestedProfit').textContent = '¥' + profit.toFixed(2);
+    document.getElementById('pricingResult').style.display = 'block';
+  } else {
+    document.getElementById('pricingResult').style.display = 'none';
+  }
+}
+
+// ===================== COST & REBATE CALCULATOR =====================
+function calculateCostRebate() {
+  const price = parseFloat(document.getElementById('crPurchasePrice').value) || 0;
+  const rate = parseFloat(document.getElementById('crRate').value) || 0;
+  const qty = parseInt(document.getElementById('crQty').value) || 1;
+  const extra = parseFloat(document.getElementById('crExtra').value) || 0;
+  const rebate = parseFloat(document.getElementById('crRebate').value) || 0;
+  const margin = parseFloat(document.getElementById('crMargin').value) || 0;
+
+  if (price <= 0) {
+    document.getElementById('crOriginalCost').textContent = '¥0';
+    document.getElementById('crRebatePrice').textContent = '¥0';
+    document.getElementById('crActualCost').textContent = '¥0';
+    document.getElementById('crSuggestedPrice').textContent = '¥0';
+    document.getElementById('crUnitProfit').textContent = '¥0';
+    document.getElementById('crTotalProfit').textContent = '¥0';
+    return;
+  }
+
+  const originalCost = price * rate * qty;
+  const rebatePrice = price * (1 - rebate/100) * rate;
+  const rebateTotal = rebatePrice * qty;
+  const actualCost = rebateTotal + extra;
+  const unitCost = actualCost / qty;
+  const suggestedPrice = unitCost / (1 - margin/100);
+  const unitProfit = suggestedPrice - unitCost;
+  const totalProfit = unitProfit * qty;
+
+  document.getElementById('crOriginalCost').textContent = '¥' + originalCost.toFixed(2);
+  document.getElementById('crRebatePrice').textContent = '¥' + rebatePrice.toFixed(2) + '/件';
+  document.getElementById('crActualCost').textContent = '¥' + actualCost.toFixed(2) + ' (单件¥' + unitCost.toFixed(2) + ')';
+  document.getElementById('crSuggestedPrice').textContent = '¥' + suggestedPrice.toFixed(2);
+  document.getElementById('crUnitProfit').textContent = '¥' + unitProfit.toFixed(2);
+  document.getElementById('crTotalProfit').textContent = '¥' + totalProfit.toFixed(2);
+}
+
+// ===================== CLEAR ALL DATA =====================
+function clearAllData() {
+  if (!rawData.length) {
+    alert('当前没有数据可清除');
+    return;
+  }
+  const count = rawData.length;
+  if (confirm('确定要清除全部 ' + count + ' 条数据吗？此操作不可恢复，建议先导出备份。')) {
+    rawData = [];
+    filteredData = [];
+    localStorage.removeItem('salesData');
+    currentPage = 1;
+    sortCol = '';
+    sortDir = 'asc';
+
+    // 重置所有显示
+    document.getElementById('kpiSales').textContent = '¥0';
+    document.getElementById('kpiCost').textContent = '¥0';
+    document.getElementById('kpiProfit').textContent = '¥0';
+    document.getElementById('kpiMargin').textContent = '0%';
+    document.getElementById('kpiQty').textContent = '0';
+    document.getElementById('kpiSalesSub').textContent = '-';
+    document.getElementById('kpiCostSub').textContent = '-';
+    document.getElementById('kpiProfitSub').textContent = '-';
+    document.getElementById('kpiMarginSub').textContent = '-';
+    document.getElementById('kpiQtySub').textContent = '-';
+
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:40px;">暂无数据，请导入或加载示例数据</td></tr>';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('alertsList').innerHTML = '<div style="color:var(--text-muted);padding:8px;">暂无数据</div>';
+
+    // 清空图表
+    Object.values(charts).forEach(c => {
+      c.setOption({
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#94a3b8', fontSize: 14 } },
+        series: []
+      }, true);
+    });
+
+    // 重置筛选器
+    document.getElementById('filterBrand').innerHTML = '<option value="all">全部品牌</option>';
+    document.getElementById('filterCurrency').innerHTML = '<option value="all">全部币种</option>';
+    document.getElementById('filterPayment').innerHTML = '<option value="all">全部渠道</option>';
+    document.getElementById('filterGender').innerHTML = '<option value="all">全部性别</option>';
+    document.getElementById('filterSize').innerHTML = '<option value="all">全部尺码</option>';
+    document.getElementById('tableSearch').value = '';
+
+    alert('已清除 ' + count + ' 条数据，页面已重置。');
+  }
+}
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', () => {
+  initCharts();
+  if (!loadSavedData()) {
+    loadDemoData();
+  }
+});
+</script>
+</body>
+</html>
